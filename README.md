@@ -23,7 +23,6 @@ npx skills add niezhiren/skills --skill classin-web-courseware
 ## 阅读和下载
 
 - [在线阅读 SKILL.md](skills/classin-web-courseware/SKILL.md)
-- [从 GitHub 下载 SKILL.md](skills/classin-web-courseware/SKILL.md?raw=1)（打开原文后可另存为文件）
-- [从 EEO 下载 SKILL.md](https://download.eeo.cn/client/classin_browser_skill.md)
+- [从 GitHub 下载 SKILL.md](https://raw.githubusercontent.com/niezhiren/skills/refs/heads/main/skills/classin-web-courseware/SKILL.md)（打开原文后可另存为文件）
 
 下载后可把 `SKILL.md` 附到 AI 对话里，并请它按文档开发或检查课件。
