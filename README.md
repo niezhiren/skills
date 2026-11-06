@@ -20,6 +20,12 @@ npx skills add niezhiren/skills --skill classin-web-courseware
 
 > 使用 classin-web-courseware 技能，帮我做一个小学英语单词和图片配对课件。老师要能在 ClassIn PC 内置浏览器里用鼠标操作，也能在 ClassIn X 大屏上用一根手指作答。拖拽之外，请提供先点单词、再点图片的操作方式，并给出真机验收步骤。
 
+## TTS 口音测试
+
+复制 [TTS 口音测试页](https://niezhiren.github.io/skills/) 的地址，在 ClassIn 或 ClassIn X 的内置浏览器打开。选「美式」或「英式」，从下拉框选择本地音色，再点「指定本地声音播放」。页面会显示这次传入的音色和地区。缺少对应地区的声音时，可在系统中添加语音包后重开客户端。
+
+[查看测试页源码](docs/index.html)
+
 ## 阅读和下载
 
 - [在线阅读 SKILL.md](skills/classin-web-courseware/SKILL.md)

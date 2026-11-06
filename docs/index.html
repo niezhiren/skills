@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TTS 口音对照测试</title>
+<style>
+:root{color-scheme:light;--ink:#182b35;--muted:#516773;--teal:#0b685b;--line:#cfddd9;--white:#fff;--soft:#e5f3ed}
+*{box-sizing:border-box}body{margin:0;background:#f0f6f3;color:var(--ink);font:16px/1.6 system-ui,sans-serif}
+main{max-width:880px;margin:auto;padding:clamp(18px,5vw,52px) clamp(14px,4vw,34px)}
+.kicker{font-size:.77rem;font-weight:750;letter-spacing:.15em;color:var(--teal)}
+h1{font-size:clamp(1.9rem,5vw,3rem);line-height:1.2;margin:.25em 0}h2{font-size:1.2rem;margin:0 0 .65em}p{margin:.55em 0}.muted,small{color:var(--muted)}
+.card{background:var(--white);border:1px solid var(--line);border-radius:16px;padding:clamp(14px,3vw,24px);margin-top:16px}
+label,legend{display:block;font-weight:700;margin-bottom:6px}fieldset{border:0;padding:0;margin:16px 0;min-width:0}
+textarea,select,button{font:inherit;color:inherit}textarea,select{width:100%;border:1px solid #9db5ac;border-radius:9px;background:#fff;padding:9px 11px}textarea{display:block;min-height:84px;resize:vertical}select{min-height:48px}
+.row{display:flex;flex-wrap:wrap;gap:8px}.actions{margin-top:16px}button{border:1px solid #a4bdb3;border-radius:9px;background:#fff;padding:8px 14px;min-height:48px;cursor:pointer;font-weight:650}
+button.primary{background:var(--teal);color:#fff;border-color:var(--teal)}button[aria-pressed=true]{background:var(--soft);border-color:var(--teal);color:#07584d}button:disabled{opacity:.48;cursor:default}
+:focus-visible{outline:3px solid #147bac;outline-offset:2px}
+#hint{min-height:1.6em;display:block;margin-top:5px}.status{padding:9px 12px;border-radius:8px;background:#eef6f5;margin-bottom:12px;font-weight:650}.status[data-tone=error]{background:#fff1ec;color:#8a3424}
+dl{display:grid;grid-template-columns:max-content 1fr;gap:4px 16px;margin:0}dt{color:var(--muted)}dd{margin:0;overflow-wrap:anywhere;font-weight:650}
+summary{cursor:pointer;font-weight:700;padding:10px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere;margin:0;padding:12px;border-radius:8px;background:#f0f5f4;font-size:.82rem}
+@media(max-width:470px){dl{grid-template-columns:1fr;gap:0}dd{margin-bottom:8px}.actions button{flex:1 0 100%}}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <div class="kicker">CLASSIN 网页课件</div>
+  <h1>TTS 口音对照测试</h1>
+  <p class="muted">请在 ClassIn 或 ClassIn X 的内置浏览器打开此页。选择美式或英式，再选一个本地音色，点「指定本地声音播放」试听。</p>
+</header>
+<section class="card" aria-labelledby="controlsTitle">
+  <h2 id="controlsTitle">试听设置</h2>
+  <label for="sample">朗读文本</label>
+  <textarea id="sample" lang="en" rows="2" maxlength="500">I parked the car near the water. After class, we took the last train to the city.</textarea>
+  <fieldset>
+    <legend>目标口音</legend>
+    <div class="row" id="regions">
+      <button type="button" data-lang="en-US" aria-pressed="true">美式 · en-US</button>
+      <button type="button" data-lang="en-GB" aria-pressed="false">英式 · en-GB</button>
+      <button type="button" data-lang="en-AU" aria-pressed="false">澳式 · en-AU</button>
+    </div>
+  </fieldset>
+  <label for="voice">该地区的本地声音</label>
+  <select id="voice" aria-describedby="hint" disabled><option>正在读取声音列表…</option></select>
+  <small id="hint">本地声音由当前设备提供。缺少对应地区的音色时，可以安装系统语音包后刷新列表。</small>
+  <div class="row actions">
+    <button id="playVoice" type="button" class="primary" disabled>指定本地声音播放</button>
+    <button id="playLang" type="button" disabled>对照：由浏览器选音</button>
+    <button id="stop" type="button" disabled>停止</button>
+    <button id="refresh" type="button">刷新声音列表</button>
+  </div>
+</section>
+<section class="card" aria-labelledby="resultTitle">
+  <h2 id="resultTitle">本次播放参数</h2>
+  <p class="muted">对照模式只传入地区。浏览器自行选音，页面无法确认实际音色。</p>
+  <p id="status" class="status" role="status">请先选择口音并点击播放。</p>
+  <dl>
+    <dt>指定的地区</dt><dd id="outLang">—</dd>
+    <dt>传入的 voice.name</dt><dd id="outName">—</dd>
+    <dt>声音来源</dt><dd id="outSource">—</dd>
+    <dt>语速</dt><dd id="outRate">—</dd>
+  </dl>
+  <details>
+    <summary>浏览器环境与可用声音</summary>
+    <pre id="environment"></pre>
+  </details>
+</section>
+</main>
+<script>
+(function () {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const synth = window.speechSynthesis;
+  const supported = !!synth && typeof window.SpeechSynthesisUtterance === 'function';
+  const select = $('voice');
+  const regionButtons = Array.from($('regions').querySelectorAll('button'));
+  const counts = new Map();
+  let locale = 'en-US';
+  let matching = [];
+  let request = 0;
+  let active = null;
+  let startTimer = 0;
+
+  const tag = lang => (lang || '').replace(/_/g, '-').toLowerCase();
+  const key = voice => JSON.stringify([voice.voiceURI, voice.name, voice.lang, voice.localService]);
+  const source = voice => voice.localService ? '本地' : '在线';
+  function status(text, error) {
+    $('status').textContent = text;
+    $('status').dataset.tone = error ? 'error' : 'normal';
+  }
+  function refresh() {
+    const selected = matching[Number(select.value)];
+    const previous = selected && key(selected);
+    const voices = supported ? synth.getVoices() : [];
+    const english = voices.filter(v => /^en(?:-|$)/.test(tag(v.lang)));
+    const localEnglish = english.filter(v => v.localService === true);
+    matching = localEnglish.filter(v => tag(v.lang) === tag(locale));
+    counts.clear();
+    localEnglish.forEach(v => counts.set(tag(v.lang), (counts.get(tag(v.lang)) || 0) + 1));
+    select.replaceChildren();
+    matching.forEach((voice, i) => {
+      select.add(new Option(`${voice.name} · ${voice.lang} · ${source(voice)}${voice.default ? ' · 默认' : ''}`, i));
+    });
+    if (matching.length) {
+      const same = previous ? matching.findIndex(v => key(v) === previous) : -1;
+      const standard = matching.findIndex(v => /^(Samantha|Daniel|Karen|Microsoft Zira|Microsoft Hazel)\b/i.test(v.name));
+      select.selectedIndex = same >= 0 ? same : Math.max(0, standard);
+    } else {
+      select.add(new Option(!supported ? '浏览器不支持 Web Speech TTS' : '没有此地区的本地声音', ''));
+    }
+    select.disabled = !matching.length;
+    $('playVoice').disabled = !matching.length;
+    $('playLang').disabled = !supported;
+    $('hint').textContent = !supported ? '当前浏览器没有提供 Web Speech TTS。' : matching.length
+      ? `当前浏览器有 ${matching.length} 个 ${locale} 本地声音。`
+      : `未找到 ${locale} 本地声音。请在系统中添加该地区的语音包，重开客户端后再试。`;
+    $('environment').textContent = `${navigator.userAgent}\n全部声音：${voices.length}；本地英语声音：${localEnglish.length}\n` +
+      ['en-US', 'en-GB', 'en-AU'].map(lang => `${lang}: ${counts.get(tag(lang)) || 0}`).join('   ') +
+      '\n\n' + english.map(v => `${v.lang}  ${v.name}  (${source(v)})`).join('\n');
+  }
+  function finish(text, error) {
+    clearTimeout(startTimer);
+    active = null;
+    $('stop').disabled = true;
+    status(text, error);
+  }
+  function stop() {
+    request++;
+    if (supported) synth.cancel();
+    finish('已停止。');
+  }
+  function play(explicit) {
+    if (!supported) return;
+    const text = $('sample').value.trim();
+    if (!text) { status('请输入要朗读的文本。', true); $('sample').focus(); return; }
+    const voice = explicit ? matching[Number(select.value)] : null;
+    if (explicit && (!voice || voice.localService !== true || tag(voice.lang) !== tag(locale))) {
+      status(`没有匹配 ${locale} 的本地声音。`, true);
+      return;
+    }
+    const current = ++request;
+    clearTimeout(startTimer);
+    synth.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = locale;
+    u.rate = 1;
+    if (voice) u.voice = voice;
+    $('outLang').textContent = u.lang;
+    $('outName').textContent = u.voice ? u.voice.name : '未指定（由浏览器决定）';
+    $('outSource').textContent = u.voice ? source(u.voice) : '浏览器未公开实际选择';
+    $('outRate').textContent = String(u.rate);
+    active = u;
+    $('stop').disabled = false;
+    status('正在请求播放…');
+    u.onstart = () => { if (current === request && active === u) { clearTimeout(startTimer); status('正在播放…'); } };
+    u.onend = () => { if (current === request && active === u) finish('播放完成。'); };
+    u.onerror = event => { if (current === request && active === u) finish(`播放失败：${event.error || '未知错误'}`, true); };
+    startTimer = setTimeout(() => {
+      if (current === request && active === u) {
+        request++;
+        synth.cancel();
+        finish('等待播放超时。请重试，或换一个本地声音。', true);
+      }
+    }, 12000);
+    try { synth.speak(u); }
+    catch (error) { finish(`播放失败：${error.message || error}`, true); }
+  }
+  regionButtons.forEach(button => button.addEventListener('click', () => {
+    locale = button.dataset.lang;
+    regionButtons.forEach(item => item.setAttribute('aria-pressed', String(item === button)));
+    refresh();
+  }));
+  $('playVoice').addEventListener('click', () => play(true));
+  $('playLang').addEventListener('click', () => play(false));
+  $('stop').addEventListener('click', stop);
+  $('refresh').addEventListener('click', refresh);
+  if (supported) synth.addEventListener('voiceschanged', refresh);
+  window.addEventListener('pagehide', () => { if (active) stop(); });
+  refresh();
+  if (supported && !synth.getVoices().length) setTimeout(refresh, 1000);
+}());
+</script>
+</body>
+</html>
