@@ -1,6 +1,6 @@
 ---
 name: classin-web-courseware
-description: 为 ClassIn 桌面端教室内置浏览器及 Windows 大屏 ClassIn X 开发、改造和验收 HTML5 网页课件、互动练习、课堂小游戏与在线教具。处理 CEF/Chromium 版本兼容、手指和触控笔输入、批注模式、课堂共享和低配大屏性能。适用于以网页链接打开的课件；EDA 或专用教室工具的原生集成须另按其正式接口处理。
+description: 为 ClassIn 桌面端教室内置浏览器及 Windows 大屏 ClassIn X 开发、改造和验收 HTML5 网页课件、互动练习、课堂小游戏与在线教具。处理 CEF/Chromium 版本兼容、手指和触控笔输入、批注模式、TTS 朗读与口音选择、课堂共享和低配大屏性能。适用于以网页链接打开的课件；EDA 或专用教室工具的原生集成须另按其正式接口处理。
 ---
 
 # 开发 ClassIn 网页课件
@@ -29,6 +29,14 @@ description: 为 ClassIn 桌面端教室内置浏览器及 Windows 大屏 ClassI
 - 首屏和核心控件用 Flexbox/Grid、媒体查询与常规选择器实现；103 下别让尺寸容器查询或 `:has()` 承担核心布局（Chromium 105 起支持）。用普通类和事件实现基础状态，再按需用 `@supports` 增强。原生 CSS 嵌套应在构建时展开，或用普通规则替代。[Chromium 105 的 CSS 说明](https://developer.chrome.com/blog/new-in-chrome-105) · [CSS 嵌套说明](https://developer.chrome.com/docs/css-ui/css-nesting)
 - 在生产 HTTPS 地址上验证首屏和所有动态资源。尽量同源托管脚本、样式、字体和媒体；跨域 API 要正确配置 CORS。避免混合内容、`file://`、本机地址、必须跳出客户端的登录、新窗口或下载流程。优先在同一页完成教学；刷新和深链接能直接打开。若使用第三方 iframe，单独验证嵌入策略、登录和课堂网络可达性，并准备同页或可直接打开的替代内容。
 - 声音从可见的“播放”按钮启动，在该次用户操作中调用 `play()` 或恢复 AudioContext，并处理拒绝及加载失败。视频可准备 MP4（H.264/AAC）与 WebM 等备选；用 `canPlayType()` 初筛、用目标客户端实际播放和拖动进度验证，不能凭 Chrome 主版本承诺解码。关键内容配字幕、图文或静态备份。需要学生听到声音时，分别验收本地播放和学生端的课堂共享声音。[Chrome 自动播放策略](https://developer.chrome.com/blog/autoplay)
+
+### 网页 TTS 朗读与口音选择
+
+**ClassIn PC 和 ClassIn X 的内置浏览器不支持 Web Speech API 的在线 TTS 音色**，例如桌面 Chrome 提供的 Google US English。通过 `speechSynthesis` 朗读时，使用目标设备已安装、由内置浏览器实际枚举出的本地语音。预生成的语音文件可以按普通网页音频播放。
+
+- **先选口音，再选本地音色。** 用 `speechSynthesis.getVoices()` 枚举，只保留 `localService === true` 且 `lang` 与目标地区精确匹配的声音。比较前统一大小写和连字符，例如美式 `en-US`、英式 `en-GB`、澳式 `en-AU`。优先使用本机试听通过的声音，例如 macOS 的 Samantha（美式）、Daniel（英式）、Karen（澳式），以目标设备的实际列表为准。需要记住用户选择时，用 `voiceURI` 在当前候选列表重新匹配。
+- **点按播放时明确传入音色。** 把选中的声音赋给 `utterance.voice`，同时将 `utterance.lang` 设为目标地区。只设置 `lang` 会让浏览器自行选音。首读列表为空时监听 `voiceschanged` 并重新枚举。API 缺失、没有对应地区的本地声音、合成报错或等待播放超时时，提示原因并提供已录制或预生成的同口音音频。避免静默换成另一个口音。
+- **需要统一示范发音时，直接播放同一份音频。** 同一口音可以有多种音色，系统音色会随设备和语音包变化。验收时在目标客户端入口试听同一句、同语速，核对传入的音色、地区和本地来源，并检查音色缺失时能否继续播放。 [Web Speech API 选音与本地语音说明](https://webaudio.github.io/web-speech-api/#speechsynthesisvoice-attributes)
 
 ## 3. 让 ClassIn X 大屏用一根手指就能上课
 
